@@ -228,7 +228,7 @@ class BufferedFile(ClosingContextManager):
         self._pos += len(result)
         return result
 
-    def readline(self, size=None):
+    def readline(self, size=None, encoding_select='utf-8'):
         """
         Read one entire line from the file.  A trailing newline character is
         kept in the string (but may be absent when a file ends with an
@@ -251,6 +251,7 @@ class BufferedFile(ClosingContextManager):
             strings (`str`) are returned
         """
         # it's almost silly how complex this function is.
+        self.check_encoding_select(encoding_select)
         if self._closed:
             raise IOError("File is closed")
         if not (self._flags & self.FLAG_READ):
@@ -294,7 +295,7 @@ class BufferedFile(ClosingContextManager):
             if (new_data is None) or (len(new_data) == 0):
                 self._rbuffer = bytes()
                 self._pos += len(line)
-                return line if self._flags & self.FLAG_BINARY else u(line)
+                return line if self._flags & self.FLAG_BINARY else u(line, encoding=encoding_select)
             line += new_data
             self._realpos += len(new_data)
         # find the newline
@@ -306,7 +307,7 @@ class BufferedFile(ClosingContextManager):
         if pos == -1:
             # we couldn't find a newline in the truncated string, return it
             self._pos += len(line)
-            return line if self._flags & self.FLAG_BINARY else u(line)
+            return line if self._flags & self.FLAG_BINARY else u(line, encoding=encoding_select)
         xpos = pos + 1
         if (
             line[pos] == cr_byte_value
@@ -331,9 +332,14 @@ class BufferedFile(ClosingContextManager):
         else:
             self._record_newline(lf)
         self._pos += len(line)
-        return line if self._flags & self.FLAG_BINARY else u(line)
+        return line if self._flags & self.FLAG_BINARY else u(line, encoding=encoding_select)
 
-    def readlines(self, sizehint=None):
+    def check_encoding_select(self, encoding_select) :
+      assert(   encoding_select == 'utf-8' or \
+                encoding_select == 'ascii' or \
+                encoding_select == 'cp437' )
+
+    def readlines(self, sizehint=None, encoding_select='utf-8'):
         """
         Read all remaining lines using `readline` and return them as a list.
         If the optional ``sizehint`` argument is present, instead of reading up
@@ -343,10 +349,11 @@ class BufferedFile(ClosingContextManager):
         :param int sizehint: desired maximum number of bytes to read.
         :returns: list of lines read from the file.
         """
+        self.check_encoding_select(encoding_select)
         lines = []
         byte_count = 0
         while True:
-            line = self.readline()
+            line = self.readline(encoding_select=encoding_select)
             if len(line) == 0:
                 break
             lines.append(line)
